@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -21,22 +20,8 @@ func main() {
 	proxy := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// configure and enable basic auth - if set
 		if params.basicAuthUsername != "" && params.basicAuthPassword != "" {
-			authHeader := r.Header.Get("Authorization")
-			encoded := strings.TrimPrefix(authHeader, "Basic ")
-			decodedBytes, err := base64.StdEncoding.DecodeString(encoded)
-			if err != nil {
-				fmt.Println("failed to decode:", err)
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
-			}
-			decoded := string(decodedBytes)
-			parts := strings.Split(decoded, ":")
-			if len(parts) != 2 {
-				fmt.Println("wrong basic auth format:", err)
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
-			}
-			if parts[0] != params.basicAuthUsername && parts[1] != params.basicAuthUsername {
+			baUsername, baPassword, ok := r.BasicAuth()
+			if baUsername != params.basicAuthUsername || baPassword != params.basicAuthPassword || !ok {
 				fmt.Println("invalid credentials:")
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
