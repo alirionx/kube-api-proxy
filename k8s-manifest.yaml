@@ -1,0 +1,111 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-api-proxy-sa
+  namespace: default
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-api-proxy-clusterrole
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-api-proxy-crb
+subjects:
+- kind: ServiceAccount
+  name: kube-api-proxy-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: kube-api-proxy-clusterrole
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-api-proxy
+  namespace: default
+  labels:
+    app: kube-api-proxy
+spec:
+  selector:
+    matchLabels:
+      app: kube-api-proxy
+  replicas: 2
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: kube-api-proxy
+    spec:
+      serviceAccountName: kube-api-proxy-sa
+      # automountServiceAccountToken: true
+      hostAliases:
+      - ip: "192.168.10.15"
+        hostnames:
+        - "keycloak.app-scape.de"
+      containers:
+      - name:  kube-api-proxy
+        image: ghcr.io/alirionx/kube-api-proxy:latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 200Mi
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+          periodSeconds: 10
+        env:
+        - name: OIDC_ENDPOINT
+          value: https://keycloak.app-scape.de/realms/master
+        - name: OIDC_CLIENT_ID
+          value: appscape
+        ports:
+        - containerPort:  8080
+          name: kube-api-proxy
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-api-proxy
+  namespace: default
+spec:
+  selector:
+    app: kube-api-proxy
+  # type: ClusterIP
+  type: LoadBalancer
+  loadBalancerIP: "192.168.10.124"
+  sessionAffinity: None
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  ports:
+  - name: kube-api-proxy
+    protocol: TCP
+    port: 8080
+    targetPort: 8080 
+   
+---

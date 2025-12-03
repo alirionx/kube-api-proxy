@@ -16,6 +16,8 @@ import (
 type Params struct {
 	k8sToken              string
 	k8sEndpoint           string
+	basicAuthUsername     string
+	basicAuthPassword     string
 	oidcEndpoint          string
 	oidcClientID          string
 	containerK8sTokenPath string
@@ -32,6 +34,9 @@ func CollectParams() Params {
 	k8s_sh := os.Getenv("KUBERNETES_SERVICE_HOST")
 	k8s_sp := os.Getenv("KUBERNETES_SERVICE_PORT")
 	k8s_tk := os.Getenv("K8S_TOKEN")
+
+	params.basicAuthUsername = os.Getenv("BASIC_AUTH_USERNAME")
+	params.basicAuthPassword = os.Getenv("BASIC_AUTH_PASSWORD")
 
 	params.oidcEndpoint = os.Getenv("OIDC_ENDPOINT")
 	params.oidcClientID = os.Getenv("OIDC_CLIENT_ID")
