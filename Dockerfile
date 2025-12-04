@@ -7,10 +7,6 @@ WORKDIR /src
 # add git for modules if needed
 RUN apk add --no-cache git
 
-# cache modules if go.mod/go.sum exist
-COPY src/go.mod src/go.sum ./
-RUN if [ -f go.mod ]; then go mod download; fi
-
 COPY src/ .
 
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
