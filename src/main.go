@@ -19,6 +19,11 @@ func main() {
 
 	proxy := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		// allow CORS
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+
 		// issue token for token auth
 		if r.URL.Path == "/token" {
 			baUsername, baPassword, ok := r.BasicAuth()

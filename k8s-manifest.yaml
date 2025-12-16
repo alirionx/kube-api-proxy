@@ -82,6 +82,10 @@ spec:
           value: https://keycloak.app-scape.de/realms/master
         - name: OIDC_CLIENT_ID
           value: appscape
+        - name: TOKEN_AUTH_USERNAME
+          value: admin
+        - name: TOKEN_AUTH_PASSWORD
+          value: admin
         ports:
         - containerPort:  8080
           name: kube-api-proxy
