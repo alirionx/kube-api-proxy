@@ -18,27 +18,44 @@ func main() {
 	target, _ := url.Parse(params.k8sEndpoint)
 
 	proxy := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// configure and enable basic auth - if set
-		if params.basicAuthUsername != "" && params.basicAuthPassword != "" {
+
+		// issue token for token auth
+		if r.URL.Path == "/token" {
 			baUsername, baPassword, ok := r.BasicAuth()
-			if baUsername != params.basicAuthUsername || baPassword != params.basicAuthPassword || !ok {
+			if baUsername != params.tokenAuthUsername || baPassword != params.tokenAuthPassword || !ok {
 				fmt.Println("invalid credentials:")
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
+			jwt := IssueBearerToken(baUsername)
+			w.Write([]byte(jwt))
+			return
 		}
 
-		// configure and enable oidc - if set
-		if params.oidcEndpoint != "" && params.basicAuthUsername == "" {
-			verifier := CreateOidcVerifier()
+		// procedure for jwt and oidc
+		if !params.disableAuth {
+			var authOk bool = false
+
 			authHeader := r.Header.Get("Authorization")
 			rawToken := strings.TrimPrefix(authHeader, "Bearer ")
-			if rawToken == "" {
+			if rawToken == "" && !params.disableAuth {
 				http.Error(w, "missing bearer token", http.StatusUnauthorized)
 				return
 			}
-			_, err := verifier.Verify(context.Background(), rawToken)
-			if err != nil {
+
+			if params.tokenAuthUsername != "" && params.tokenAuthPassword != "" {
+				authOk = CheckJwtToken(rawToken)
+			}
+
+			if !authOk && params.oidcEndpoint != "" {
+				verifier := CreateOidcVerifier()
+				_, err := verifier.Verify(context.Background(), rawToken)
+				if err == nil {
+					authOk = true
+				}
+			}
+
+			if !authOk {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}

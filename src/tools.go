@@ -8,16 +8,20 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // -------------------------------------------------
 type Params struct {
 	k8sToken              string
 	k8sEndpoint           string
-	basicAuthUsername     string
-	basicAuthPassword     string
+	tokenAuthUsername     string
+	disableAuth           bool
+	tokenAuthPassword     string
+	jwtKey                string
 	oidcEndpoint          string
 	oidcClientID          string
 	containerK8sTokenPath string
@@ -35,8 +39,22 @@ func CollectParams() Params {
 	k8s_sp := os.Getenv("KUBERNETES_SERVICE_PORT")
 	k8s_tk := os.Getenv("K8S_TOKEN")
 
-	params.basicAuthUsername = os.Getenv("BASIC_AUTH_USERNAME")
-	params.basicAuthPassword = os.Getenv("BASIC_AUTH_PASSWORD")
+	if os.Getenv("DISABLE_AUTH") != "" {
+		params.disableAuth = true
+	}
+
+	params.jwtKey = os.Getenv("JWT_KEY")
+	if params.jwtKey == "" {
+		params.jwtKey = "GehHe1m!"
+	}
+
+	params.tokenAuthUsername = os.Getenv("TOKEN_AUTH_USERNAME")
+	params.tokenAuthPassword = os.Getenv("TOKEN_AUTH_PASSWORD")
+
+	params.jwtKey = os.Getenv("JWT_KEY")
+	if params.jwtKey == "" {
+		params.jwtKey = "GehHe1m!"
+	}
 
 	params.oidcEndpoint = os.Getenv("OIDC_ENDPOINT")
 	params.oidcClientID = os.Getenv("OIDC_CLIENT_ID")
@@ -84,6 +102,21 @@ func GetHttpCli() http.Client {
 }
 
 // ------------
+func IssueBearerToken(username string) string {
+	params := CollectParams()
+	claims := jwt.MapClaims{
+		"username": username,
+		"exp":      time.Now().Add(time.Hour * 1).Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, err := token.SignedString([]byte(params.jwtKey))
+	if err != nil {
+		log.Fatal("jwt error:", err)
+	}
+	return signedToken
+}
+
+// ------------
 func CreateOidcVerifier() oidc.IDTokenVerifier {
 	params := CollectParams()
 	provider, err := oidc.NewProvider(context.Background(), params.oidcEndpoint)
@@ -96,3 +129,23 @@ func CreateOidcVerifier() oidc.IDTokenVerifier {
 	})
 	return *verifier
 }
+
+// ------------
+func CheckJwtToken(rawToken string) bool {
+	params := CollectParams()
+	parsedToken, err := jwt.Parse(rawToken, func(token *jwt.Token) (any, error) {
+		return []byte(params.jwtKey), nil
+	})
+	if err != nil {
+		return false
+	}
+	_, ok := parsedToken.Claims.(jwt.MapClaims)
+	if !ok {
+		return false
+	}
+	return true
+}
+
+// ------------
+
+// ------------
