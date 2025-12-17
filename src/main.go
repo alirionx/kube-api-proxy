@@ -22,13 +22,19 @@ func main() {
 		// allow CORS
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		// Preflight-Request direkt beantworten
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 
 		// issue token for token auth
 		if r.URL.Path == "/token" {
 			baUsername, baPassword, ok := r.BasicAuth()
+			fmt.Println(baUsername, baPassword)
 			if baUsername != params.tokenAuthUsername || baPassword != params.tokenAuthPassword || !ok {
-				fmt.Println("invalid credentials:")
+				fmt.Println("invalid credentials")
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
@@ -79,6 +85,7 @@ func main() {
 			return
 		}
 		defer resp.Body.Close()
+
 		w.WriteHeader(resp.StatusCode)
 		io.Copy(w, resp.Body)
 	})
